@@ -7,7 +7,12 @@ const PORT = process.env.PORT || 8080
 app.use(cors());
 app.use(express.json());
 
-let reservations = [];
+let reservations = [
+  {
+    "id": 1,
+    "name": piana  
+  }
+];
 
 // GET: view everything at http://localhost:8080/api/reservations
 app.get("/api/reservations", (req, res) => {
