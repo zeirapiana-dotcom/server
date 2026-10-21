@@ -10,7 +10,7 @@ app.use(express.json());
 let reservations = [
   {
     "id": 1,
-    "name": piana  
+    "name": "piana"  
   }
 ];
 
