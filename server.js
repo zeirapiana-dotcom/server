@@ -130,9 +130,23 @@ app.get('/api/rooms/:id', async (req, res) => {
 app.post('/api/rooms', requireRole('admin'), async (req, res) => {
     try {
         const { room_name, room_type, price, capacity, status, amenities } = req.body;
+
+        if (!room_name || !room_type || price === undefined || price === '' || !capacity) {
+            return res.status(400).json({ message: 'Please complete all required fields.' });
+        }
+        if (Number(price) < 0 || Number(capacity) < 1) {
+            return res.status(400).json({ message: 'Price must be 0 or more and capacity at least 1.' });
+        }
+
+        // iwasan ang dalawang aktibong room na pareho ang pangalan
+        const [dup] = await db.query('SELECT room_id FROM rooms WHERE room_name = ? AND deleted = 0', [room_name]);
+        if (dup.length > 0) {
+            return res.status(409).json({ message: 'A room with this name already exists.' });
+        }
+
         const [result] = await db.query(
-            'INSERT INTO rooms (room_name, room_type, price, capacity, status, amenities) VALUES (?, ?, ?, ?, ?, ?)',
-            [room_name, room_type, price, capacity, status, amenities]
+            'INSERT INTO rooms (room_name, room_type, price, capacity, status, amenities, deleted) VALUES (?, ?, ?, ?, ?, ?, 0)',
+            [room_name, room_type, price, capacity, status || 'Available', amenities || '']
         );
         res.status(201).json({ message: 'Room added', id: result.insertId });
     } catch (err) {
