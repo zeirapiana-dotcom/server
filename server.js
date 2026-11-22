@@ -8,13 +8,32 @@ const PORT = process.env.PORT || 8080;
 
 const app = express();
 
-const db = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'easeplace_db',
-    dateStrings: true // DATE ay babalik bilang "2026-06-01" (hindi nagbabago ang araw dahil sa timezone)
-});
+// ===================== DATABASE =====================
+// Production (Render): ilagay ang DATABASE_URL (mysql://user:password@host:port/database) at DB_SSL=true
+// Local (XAMPP): kung walang DATABASE_URL, gagamitin ang localhost / root / easeplace_db
+function dbConfig() {
+    const base = {
+        dateStrings: true, // DATE ay babalik bilang "2026-06-01" (hindi nagbabago ang araw dahil sa timezone)
+        enableKeepAlive: true,
+    };
+
+    if (process.env.DATABASE_URL) {
+        const url = new URL(process.env.DATABASE_URL);
+        return {
+            ...base,
+            host: url.hostname,
+            port: Number(url.port) || 3306,
+            user: decodeURIComponent(url.username),
+            password: decodeURIComponent(url.password),
+            database: url.pathname.replace('/', ''),
+            ssl: process.env.DB_SSL === 'true' ? { minVersion: 'TLSv1.2', rejectUnauthorized: true } : undefined,
+        };
+    }
+
+    return { ...base, host: 'localhost', user: 'root', password: '', database: 'easeplace_db' };
+}
+
+const db = mysql.createPool(dbConfig());
 
 async function checkDb() {
     try {
@@ -74,13 +93,22 @@ function requireRole(...roles) {
     };
 }
 
+// CLIENT_ORIGIN: mga address ng frontend na pinapayagan (pinaghihiwalay ng kuwit).
+// Kung walang laman (local development), bukas sa lahat.
+const allowedOrigins = (process.env.CLIENT_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean);
+
 app.use(express.json());
-app.use(cors());
+app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
 
 // ipakita sa terminal ang bawat request
 app.use((req, res, next) => {
     console.log(`${req.method} ${req.url}`, req.body);
     next();
+});
+
+// Simpleng mensahe sa root URL
+app.get('/', (req, res) => {
+    res.json({ name: 'EasePlace API', health: '/api/health' });
 });
 
 // HEALTH CHECK (public, para sa Render at sa deliverables)
